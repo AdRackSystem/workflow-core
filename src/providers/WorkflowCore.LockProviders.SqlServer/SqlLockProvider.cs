@@ -6,6 +6,8 @@ using WorkflowCore.Interface;
 using System.Data;
 using System.Collections.Generic;
 using System.Threading;
+using Microsoft.EntityFrameworkCore;
+using WorkflowCore.Persistence.EntityFramework.Services;
 
 namespace WorkflowCore.LockProviders.SqlServer
 {
@@ -13,19 +15,14 @@ namespace WorkflowCore.LockProviders.SqlServer
     {
         private const string Prefix = "wfc";
 
-        private readonly string _connectionString;
+        private readonly WorkflowDbContext _db;
         private readonly ILogger _logger;
-        private readonly Dictionary<string, SqlConnection> _locks = new Dictionary<string, SqlConnection>();
         private readonly AutoResetEvent _mutex = new AutoResetEvent(true);
 
-        public SqlLockProvider(string connectionString, ILoggerFactory logFactory)
+        public SqlLockProvider(WorkflowDbContext db, ILogger<SqlLockProvider> logger)
         {
-            _logger = logFactory.CreateLogger<SqlLockProvider>();
-            var csb = new SqlConnectionStringBuilder(connectionString);
-            csb.Pooling = true;
-            csb.ApplicationName = "Workflow Core Lock Manager";
-            
-            _connectionString = csb.ToString();
+            _db = db;
+            _logger = logger;
         }
 
 
@@ -35,7 +32,7 @@ namespace WorkflowCore.LockProviders.SqlServer
             {
                 try
                 {
-                    var connection = new SqlConnection(_connectionString);
+                    await using var connection = (SqlConnection)_db.Database.GetDbConnection();
                     await connection.OpenAsync(cancellationToken);
                     try
                     {
@@ -68,7 +65,6 @@ namespace WorkflowCore.LockProviders.SqlServer
                         }
                         if (result >= 0)
                         {
-                            _locks[Id] = connection;
                             return true;
                         }
                         else
@@ -80,7 +76,7 @@ namespace WorkflowCore.LockProviders.SqlServer
                     catch (Exception ex)
                     {
                         connection.Close();
-                        throw ex;
+                        throw;
                     }
                 }
                 finally
@@ -97,33 +93,21 @@ namespace WorkflowCore.LockProviders.SqlServer
             {
                 try
                 {
-                    SqlConnection connection = null;
-                    connection = _locks[Id];
+                    await using var connection = (SqlConnection)_db.Database.GetDbConnection();
 
-                    if (connection == null)
-                        return;
+                    var cmd = connection.CreateCommand();
+                    cmd.CommandText = "sp_releaseapplock";
+                    cmd.CommandType = CommandType.StoredProcedure;
+                    cmd.Parameters.AddWithValue("@Resource", $"{Prefix}:{Id}");
+                    cmd.Parameters.AddWithValue("@LockOwner", $"Session");
+                    var returnParameter = cmd.Parameters.Add("RetVal", SqlDbType.Int);
+                    returnParameter.Direction = ParameterDirection.ReturnValue;
 
-                    try
-                    {
-                        var cmd = connection.CreateCommand();
-                        cmd.CommandText = "sp_releaseapplock";
-                        cmd.CommandType = CommandType.StoredProcedure;
-                        cmd.Parameters.AddWithValue("@Resource", $"{Prefix}:{Id}");
-                        cmd.Parameters.AddWithValue("@LockOwner", $"Session");
-                        var returnParameter = cmd.Parameters.Add("RetVal", SqlDbType.Int);
-                        returnParameter.Direction = ParameterDirection.ReturnValue;
+                    await cmd.ExecuteNonQueryAsync();
+                    var result = Convert.ToInt32(returnParameter.Value);
 
-                        await cmd.ExecuteNonQueryAsync();
-                        var result = Convert.ToInt32(returnParameter.Value);
-
-                        if (result < 0)
-                            _logger.LogError($"Unable to release lock for {Id}");
-                    }
-                    finally
-                    {
-                        connection.Close();
-                        _locks.Remove(Id);
-                    }
+                    if (result < 0)
+                        _logger.LogError($"Unable to release lock for {Id}");
                 }
                 finally
                 {

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using Microsoft.Extensions.Logging;
+using WorkflowCore.Interface;
 using WorkflowCore.LockProviders.SqlServer;
 using WorkflowCore.Models;
 
@@ -8,10 +9,9 @@ namespace Microsoft.Extensions.DependencyInjection
 {
     public static class ServiceCollectionExtensions
     {
-        public static WorkflowOptions UseSqlServerLocking(this WorkflowOptions options, string connectionString)
+        public static IServiceCollection AddSqlServerLocking(this IServiceCollection serviceCollection, string connectionString)
         {
-            options.UseDistributedLockManager(sp => new SqlLockProvider(connectionString, sp.GetService<ILoggerFactory>()));
-            return options;
+            return serviceCollection.AddScoped<IDistributedLockProvider, SqlLockProvider>();
         }
     }
 }

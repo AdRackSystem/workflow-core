@@ -5,6 +5,7 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
 using WorkflowCore.Interface;
+using WorkflowCore.Persistence.SqlServer;
 using WorkflowCore.QueueProviders.SqlServer.Interfaces;
 
 #endregion

@@ -20,14 +20,14 @@ namespace Microsoft.Extensions.DependencyInjection
             var options = new WorkflowOptions(services);
             setupAction?.Invoke(options);
             services.AddSingleton<ISingletonMemoryProvider, MemoryPersistenceProvider>();
-            services.AddTransient<IPersistenceProvider>(options.PersistanceFactory);
-            services.AddTransient<IWorkflowRepository>(options.PersistanceFactory);
-            services.AddTransient<ISubscriptionRepository>(options.PersistanceFactory);
-            services.AddTransient<IEventRepository>(options.PersistanceFactory);
-            services.AddSingleton<IQueueProvider>(options.QueueFactory);
-            services.AddSingleton<IDistributedLockProvider>(options.LockFactory);
-            services.AddSingleton<ILifeCycleEventHub>(options.EventHubFactory);
-            services.AddSingleton<ISearchIndex>(options.SearchIndexFactory);
+            services.AddScoped<IPersistenceProvider, TransientMemoryPersistenceProvider>();
+            services.AddScoped<IWorkflowRepository, TransientMemoryPersistenceProvider>();
+            services.AddScoped<ISubscriptionRepository, TransientMemoryPersistenceProvider>();
+            services.AddScoped<IEventRepository, TransientMemoryPersistenceProvider>();
+            services.AddScoped<IQueueProvider, SingleNodeQueueProvider>();
+            services.AddScoped<IDistributedLockProvider, SingleNodeLockProvider>();
+            services.AddSingleton<ILifeCycleEventHub, SingleNodeEventHub>();
+            services.AddSingleton<ISearchIndex, NullSearchIndex>();
 
             services.AddSingleton<IWorkflowRegistry, WorkflowRegistry>();
             services.AddSingleton<WorkflowOptions>(options);

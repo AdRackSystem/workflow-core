@@ -8,6 +8,10 @@ namespace WorkflowCore.Persistence.EntityFramework.Services
 {
     public abstract class WorkflowDbContext : DbContext
     {
+        public WorkflowDbContext(DbContextOptions<DbContext> options) : base(options)
+        {
+            
+        }
         protected abstract void ConfigureWorkflowStorage(EntityTypeBuilder<PersistedWorkflow> builder);
         protected abstract void ConfigureExecutionPointerStorage(EntityTypeBuilder<PersistedExecutionPointer> builder);
         protected abstract void ConfigureExecutionErrorStorage(EntityTypeBuilder<PersistedExecutionError> builder);

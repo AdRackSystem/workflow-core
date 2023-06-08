@@ -9,20 +9,8 @@ namespace WorkflowCore.Persistence.SqlServer
 {
     public class SqlServerContext : WorkflowDbContext
     {
-        private readonly string _connectionString;
-
-        public SqlServerContext(string connectionString)
-            : base()
-        {
-            _connectionString = connectionString;
-        }
-        
-        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        {
-            base.OnConfiguring(optionsBuilder);
-            optionsBuilder.UseSqlServer(_connectionString);
-        }
-
+        public SqlServerContext(DbContextOptions<DbContext> options) : base(options)
+        { }
         protected override void ConfigureSubscriptionStorage(EntityTypeBuilder<PersistedSubscription> builder)
         {
             builder.ToTable("Subscription", "wfc");

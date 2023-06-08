@@ -5,48 +5,39 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using WorkflowCore.Interface;
 using WorkflowCore.Models;
-using WorkflowCore.Persistence.EntityFramework.Interfaces;
 using WorkflowCore.Persistence.EntityFramework.Models;
 
 namespace WorkflowCore.Persistence.EntityFramework.Services
 {
     public class WorkflowPurger : IWorkflowPurger
     {
-        private readonly IWorkflowDbContextFactory _contextFactory;
+        private readonly WorkflowDbContext _db;
 
-        public WorkflowPurger(IWorkflowDbContextFactory contextFactory)
+        public WorkflowPurger(WorkflowDbContext db)
         {
-            _contextFactory = contextFactory;
+            this._db = db;
         }
         
         public async Task PurgeWorkflows(WorkflowStatus status, DateTime olderThan, CancellationToken cancellationToken = default)
         {
             var olderThanUtc = olderThan.ToUniversalTime();
-            using (var db = ConstructDbContext())
+            
+            var workflows = await _db.Set<PersistedWorkflow>().Where(x => x.Status == status && x.CompleteTime < olderThanUtc).ToListAsync(cancellationToken);
+            foreach (var wf in workflows)
             {
-                var workflows = await db.Set<PersistedWorkflow>().Where(x => x.Status == status && x.CompleteTime < olderThanUtc).ToListAsync(cancellationToken);
-                foreach (var wf in workflows)
+                foreach (var pointer in wf.ExecutionPointers)
                 {
-                    foreach (var pointer in wf.ExecutionPointers)
+                    foreach (var extAttr in pointer.ExtensionAttributes)
                     {
-                        foreach (var extAttr in pointer.ExtensionAttributes)
-                        {
-                            db.Remove(extAttr);
-                        }
-
-                        db.Remove(pointer);
+                        _db.Remove(extAttr);
                     }
-                    db.Remove(wf);
-                }
 
-                await db.SaveChangesAsync(cancellationToken);
+                    _db.Remove(pointer);
+                }
+                _db.Remove(wf);
             }
-        }
-        
-        
-        private WorkflowDbContext ConstructDbContext()
-        {
-            return _contextFactory.Build();
+
+            await _db.SaveChangesAsync(cancellationToken);
         }
     }
 }

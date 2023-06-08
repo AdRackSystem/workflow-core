@@ -158,7 +158,7 @@ namespace WorkflowCore.Services
 
             using (var scope = _scopeProvider.CreateScope(context))
             {
-                _logger.LogDebug("Starting step {0} on workflow {1}", step.Name, workflow.Id);
+                _logger.LogDebug("Starting step {0} on workflow {1}", step.Id, workflow.Id);
 
                 IStepBody body = step.ConstructBody(scope.ServiceProvider);
                 var stepExecutor = scope.ServiceProvider.GetRequiredService<IStepExecutor>();
